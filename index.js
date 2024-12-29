@@ -306,6 +306,7 @@ const refreshAccessToken = async () => {
   }
 };
 
+app.use(express.json());
 // Route to initialize authentication
 app.get("/auth-url", async (req, res) => {
   const url = `https://api.upstox.com/v2/login/authorization/dialog?client_id=${client_id}&redirect_uri=${encodeURIComponent(
@@ -344,10 +345,10 @@ app.get("/", async (req, res) => {
 
     const { access_token, refresh_token } = response.data;
 
-    if (!access_token || !refresh_token) {
+    if (!access_token) {
       return res.status(500).send("Tokens not received.");
     }
-
+    console.log(access_token);
     accessToken = access_token;
     refreshToken = refresh_token;
 
@@ -368,48 +369,56 @@ app.get("/", async (req, res) => {
 
 // Real-time WebSocket integration with Upstox
 const initializeMarketStreamer = (keys) => {
-  if (!accessToken) {
-    console.error("Access token not available.");
-    return;
-  }
+  try {
+    if (!accessToken) {
+      console.error("Access token not available.");
+      return;
+    }
 
-  const defaultClient = UpstoxClient.ApiClient.instance;
-  const OAUTH2 = defaultClient.authentications["OAUTH2"];
-  OAUTH2.accessToken = accessToken;
+    const defaultClient = UpstoxClient.ApiClient.instance;
+    const OAUTH2 = defaultClient.authentications["OAUTH2"];
+    OAUTH2.accessToken = accessToken;
+    const streamer = new UpstoxClient.MarketDataStreamer();
 
-  const streamer = new UpstoxClient.MarketDataStreamer();
-
-  streamer.connect();
-
-  // Handle WebSocket events
-  let subscribedKeys = new Set();
-
-  streamer.on("open", () => {
-    console.log("Connected to Upstox WebSocket.");
-
-    keys.forEach((key) => {
-      if (!subscribedKeys.has(key)) {
-        subscribedKeys.add(key);
-        streamer.subscribe([key], "full");
-      }
+    // Add error listener to handle connection errors
+    streamer.on("error", (error) => {
+      console.error("MarketDataStreamer error:", error.message);
     });
-  });
 
-  streamer.on("message", (data) => {
-    const feed = data.toString("utf-8");
-    const objectData = JSON.parse(feed);
+    streamer.connect();
 
-    const timestampMs = Number(objectData?.currentTs);
-    const currentDate = new Date(timestampMs);
-    const currentMinute = currentDate.getMinutes();
+    // Handle WebSocket events
+    let subscribedKeys = new Set();
 
-    // Emit data to connected clients
-    io.emit("stock-data", objectData);
-  });
+    streamer.on("open", () => {
+      console.log("Connected to Upstox WebSocket.");
+      console.log("Subscribing to symbols:", keys);
+      keys.forEach((key) => {
+        if (!subscribedKeys.has(key)) {
+          subscribedKeys.add(key);
+          streamer.subscribe([key], "full");
+        }
+      });
+    });
 
-  streamer.on("close", () => {
-    console.log("WebSocket disconnected, reconnecting...");
-  });
+    streamer.on("message", (data) => {
+      const feed = data.toString("utf-8");
+      const objectData = JSON.parse(feed);
+
+      const timestampMs = Number(objectData?.currentTs);
+      const currentDate = new Date(timestampMs);
+      const currentMinute = currentDate.getMinutes();
+
+      // Emit data to connected clients
+      io.emit("stock-data", objectData);
+    });
+
+    streamer.on("close", () => {
+      console.log("WebSocket disconnected, reconnecting...");
+    });
+  } catch (error) {
+    console.error("Error initializing MarketDataStreamer:", error.message);
+  }
 };
 
 // Endpoint to start market streamer for multiple stock keys
@@ -422,14 +431,17 @@ app.post("/start-multiple-stocks", async (req, res) => {
   if (!accessToken) {
     return res.status(400).send("Access token not found.");
   }
-
-  initializeMarketStreamer(keys);
-  res.send("Market streamer for multiple stocks started.");
+  try {
+    initializeMarketStreamer(keys);
+    res.send("Market streamer for multiple stocks started.");
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
 });
 
 // Endpoint to start market streamer for a single stock key
 app.post("/start-single-stock", async (req, res) => {
-  const { key } = req.body; // Single instrument key passed from the app
+  const { key } = await req.body; // Single instrument key passed from the app
   if (!key) {
     return res.status(400).send("No instrument key provided.");
   }
@@ -489,6 +501,70 @@ app.get("/test-stock-data", (req, res) => {
     res.send("Random stock data generation started.");
   } else {
     res.send("No clients connected. Cannot start random data generation.");
+  }
+});
+
+app.post("/market-quote", async (req, res) => {
+  const { instrument_key } = req.body;
+  console.log("quote key(s):", instrument_key);
+
+  if (
+    !instrument_key ||
+    (Array.isArray(instrument_key) && instrument_key.length === 0)
+  ) {
+    return res.status(400).json({ error: "Instrument key(s) is required" });
+  }
+
+  try {
+    const keys = Array.isArray(instrument_key)
+      ? instrument_key
+      : [instrument_key]; // Ensure it's an array
+    const results = [];
+
+    for (const key of keys) {
+      const url = `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${encodeURIComponent(
+        key
+      )}`;
+      console.log("Fetching URL:", url);
+
+      // Set request headers
+      const headers = {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      };
+
+      // Make the API call
+      const response = await axios.get(url, { headers });
+      let Symbol = Object.keys(response?.data?.data);
+      // Extract the relevant data for the current key
+      const symbolData = response.data?.data?.[Symbol];
+      if (symbolData) {
+        const extractedData = {
+          upperCircuit: symbolData?.upper_circuit_limit,
+          lowerCircuit: symbolData?.lower_circuit_limit,
+          volume: symbolData?.volume,
+          open: symbolData?.ohlc?.open,
+          high: symbolData?.ohlc?.high,
+          low: symbolData?.ohlc?.low,
+          close: symbolData?.ohlc?.close,
+          net_change: symbolData?.net_change,
+        };
+        console.log(extractedData);
+        results.push({ key, data: extractedData });
+      } else {
+        results.push({ key, error: "No data available for this key" });
+      }
+    }
+
+    // Send the aggregated response back to the client
+    res.json(results);
+  } catch (error) {
+    // Handle errors
+    console.error("Error fetching market quotes:", error.message);
+    res.status(500).json({
+      error: "Failed to fetch market quotes",
+      details: error.message,
+    });
   }
 });
 
