@@ -439,6 +439,10 @@ app.post("/start-multiple-stocks", async (req, res) => {
   }
 });
 
+app.get("/apistatus", (req, res) => {
+  res.status(200).send("<h2>Api is running...</h2>");
+});
+
 // Endpoint to start market streamer for a single stock key
 app.post("/start-single-stock", async (req, res) => {
   const { key } = await req.body; // Single instrument key passed from the app
@@ -493,8 +497,6 @@ const generateRandomData = () => {
 };
 
 app.get("/test-stock-data", (req, res) => {
-  console.log("Request to generate stock data");
-
   // Check if there are connected clients before calling generateRandomData
   if (io.engine.clientsCount > 0) {
     generateRandomData();
@@ -506,7 +508,6 @@ app.get("/test-stock-data", (req, res) => {
 
 app.post("/market-quote", async (req, res) => {
   const { instrument_key } = req.body;
-  console.log("quote key(s):", instrument_key);
 
   if (
     !instrument_key ||
@@ -525,7 +526,6 @@ app.post("/market-quote", async (req, res) => {
       const url = `https://api.upstox.com/v2/market-quote/quotes?instrument_key=${encodeURIComponent(
         key
       )}`;
-      console.log("Fetching URL:", url);
 
       // Set request headers
       const headers = {
@@ -549,7 +549,6 @@ app.post("/market-quote", async (req, res) => {
           close: symbolData?.ohlc?.close,
           net_change: symbolData?.net_change,
         };
-        console.log(extractedData);
         results.push({ key, data: extractedData });
       } else {
         results.push({ key, error: "No data available for this key" });
