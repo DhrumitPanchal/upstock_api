@@ -383,38 +383,81 @@ const initializeMarketStreamer = (keys) => {
     // Add error listener to handle connection errors
     streamer.on("error", (error) => {
       console.error("MarketDataStreamer error:", error.message);
+
+      // Retry connection if an error occurs
+      setTimeout(() => {
+        console.log("Retrying connection...");
+        try {
+          streamer.connect();
+        } catch (retryError) {
+          console.error("Error while retrying connection:", retryError.message);
+        }
+      }, 5000); // Retry after 5 seconds
     });
 
     streamer.connect();
 
     // Handle WebSocket events
     let subscribedKeys = new Set();
+    let latestData = null; // Store the latest data
+    let lastEmitTime = 0; // Track the last emit time
 
     streamer.on("open", () => {
       console.log("Connected to Upstox WebSocket.");
       console.log("Subscribing to symbols:", keys);
-      keys.forEach((key) => {
-        if (!subscribedKeys.has(key)) {
-          subscribedKeys.add(key);
-          streamer.subscribe([key], "full");
-        }
-      });
+
+      // Subscribe to keys safely
+      try {
+        keys.forEach((key) => {
+          if (!subscribedKeys.has(key)) {
+            subscribedKeys.add(key);
+            streamer.subscribe([key], "full");
+          }
+        });
+      } catch (subscribeError) {
+        console.error("Error subscribing to symbols:", subscribeError.message);
+      }
     });
 
     streamer.on("message", (data) => {
-      const feed = data.toString("utf-8");
-      const objectData = JSON.parse(feed);
+      try {
+        const feed = data.toString("utf-8");
+        const objectData = JSON.parse(feed);
 
-      const timestampMs = Number(objectData?.currentTs);
-      const currentDate = new Date(timestampMs);
-      const currentMinute = currentDate.getMinutes();
+        // Store the latest data received
+        latestData = objectData;
 
-      // Emit data to connected clients
-      io.emit("stock-data", objectData);
+        const currentTimestamp = Date.now();
+        // Check if 10 seconds have passed since the last emit
+        if (currentTimestamp - lastEmitTime >= 10000) {
+          lastEmitTime = currentTimestamp;
+          io.emit("stock-data", latestData); // Emit the latest data
+        }
+      } catch (messageError) {
+        console.error("Error processing message data:", messageError.message);
+      }
     });
 
     streamer.on("close", () => {
-      console.log("WebSocket disconnected, reconnecting...");
+      console.warn("WebSocket disconnected, attempting to reconnect...");
+      setTimeout(() => {
+        try {
+          streamer.connect();
+        } catch (reconnectError) {
+          console.error("Error while reconnecting:", reconnectError.message);
+        }
+      }, 5000); // Reconnect after 5 seconds
+    });
+
+    // Catch unexpected exceptions during runtime
+    process.on("uncaughtException", (err) => {
+      console.error("Uncaught exception:", err.message);
+      // Optionally log the stack trace or restart the server
+    });
+
+    process.on("unhandledRejection", (reason, promise) => {
+      console.error("Unhandled promise rejection:", reason);
+      // Optionally log and handle cleanup tasks
     });
   } catch (error) {
     console.error("Error initializing MarketDataStreamer:", error.message);
