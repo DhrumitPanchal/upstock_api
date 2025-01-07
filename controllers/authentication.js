@@ -67,7 +67,7 @@ const getCode = async (req, res) => {
       "Error exchanging authorization code for tokens:",
       error.message
     );
-    res.status(500).send("Error exchanging authorization code for tokens.");
+    // res.status(500).send("Error exchanging authorization code for tokens.");
   }
 };
 

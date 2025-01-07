@@ -45,10 +45,10 @@ app.get("/", async (req, res) => {
   try {
     accessToken = await getCode(req, res);
     console.log("Access token returned");
-    res.status(200).json({ accessToken });
+   return res.status(200).send(CircularJSON.stringify({ accessToken }));
   } catch (error) {
     console.error("Error obtaining access token:", error.message);
-    res.status(500).json({ error: "Failed to obtain access token" });
+  return  res.status(500).json({ error: "Failed to obtain access token" });
   }
 });
 
