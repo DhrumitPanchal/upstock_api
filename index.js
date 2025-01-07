@@ -42,13 +42,18 @@ app.get("/status", (req, res) => {
 app.get("/auth-url", authUrl);
 
 app.get("/", async (req, res) => {
+  const code = req.query.code;
+
+  if (!code) {
+    return res.status(400).send("Authorization code not found.");
+  }
   try {
     accessToken = await getCode(req, res);
     console.log("Access token returned");
-   return res.status(200).send(CircularJSON.stringify({ accessToken }));
+    return res.status(200).send(CircularJSON.stringify({ accessToken }));
   } catch (error) {
     console.error("Error obtaining access token:", error.message);
-  return  res.status(500).json({ error: "Failed to obtain access token" });
+    return res.status(500).json({ error: "Failed to obtain access token" });
   }
 });
 
