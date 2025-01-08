@@ -58,8 +58,8 @@ const initializeMarketStreamer = async (streamingNamespace) => {
       // When connection is open, subscribe to active users' keys
       activeUsers.forEach((keys, socketId) => {
         keys?.map((item) => {
-          console.log([item]);
-          streamer.subscribe(item, "full");
+          // console.log([item]);
+          streamer.subscribe([item], "full");
           console.log(`Subscribed to keys for user ${socketId}: ${keys}`);
         });
       });

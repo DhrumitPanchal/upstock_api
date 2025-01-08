@@ -23,6 +23,7 @@ loadTokens();
 let streamer = null;
 let retryCount = 0;
 const MAX_RETRIES = 5;
+let latestStockData = {}; // Cache for the latest stock data
 
 // Function to check if the token is valid
 const checkToken = async () => {
@@ -78,6 +79,9 @@ const initializeMarketStreamer = async (streamingNamespace) => {
       try {
         const feed = data.toString("utf-8");
         const objectData = JSON.parse(feed);
+
+        latestStockData = objectData;
+
         // Emit stock data to all connected users in the namespace
         streamingNamespace.emit("stock-data", objectData);
       } catch (err) {
@@ -140,6 +144,11 @@ const Initial_Streaming = (io) => {
   streamingNamespace.on("connection", (socket) => {
     console.log(`User connected to Initial streaming: ${socket.id}`);
 
+    if (Object.keys(latestStockData).length > 0) {
+      socket.emit("stock-data", latestStockData);
+    } else {
+      socket.emit("info", "No data available yet. Waiting for updates...");
+    }
     // Start the streamer if this is the first user
     if (streamingNamespace.sockets.size === 1) {
       initializeMarketStreamer(streamingNamespace);
