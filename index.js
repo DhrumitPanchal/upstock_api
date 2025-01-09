@@ -8,7 +8,7 @@ const { authUrl, getCode } = require("./controllers/authentication");
 const { marketQuote } = require("./controllers/marketquote");
 const Initial_Streaming = require("./controllers/initial_Streaming");
 const streaming_user_specific = require("./controllers/userSpecificStreaming");
-
+const CircularJSON = require("circular-json");
 env.config();
 const app = express();
 app.use(cors());
