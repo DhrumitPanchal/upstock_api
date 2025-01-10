@@ -9,6 +9,7 @@ const { marketQuote } = require("./controllers/marketquote");
 const Initial_Streaming = require("./controllers/initial_Streaming");
 const streaming_user_specific = require("./controllers/userSpecificStreaming");
 const CircularJSON = require("circular-json");
+const { getToken } = require("./controllers/getToken");
 env.config();
 const app = express();
 app.use(cors());
@@ -22,14 +23,11 @@ const tokensFile = "./tokens.json";
 let accessToken = null;
 
 // Load tokens from file
-const loadTokens = () => {
-  if (fs.existsSync(tokensFile)) {
-    const tokensData = JSON.parse(fs.readFileSync(tokensFile, "utf8"));
-    accessToken = tokensData.accessToken;
-    console.log("Tokens loaded from file.");
-  }
+const loadTokens = async () => {
+  const token = await getToken();
+  accessToken = token;
 };
-
+loadTokens();
 // Setup streaming namespace
 Initial_Streaming(io);
 streaming_user_specific(io);
@@ -50,7 +48,7 @@ app.get("/", async (req, res) => {
   try {
     accessToken = await getCode(req, res);
     console.log("Access token returned");
-    return res.status(200).send(CircularJSON.stringify({ accessToken }));
+    return res.status(200).send("<h2>Token Set successfully</h2>");
   } catch (error) {
     console.error("Error obtaining access token:", error.message);
     return res.status(500).json({ error: "Failed to obtain access token" });

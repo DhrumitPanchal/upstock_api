@@ -9,6 +9,8 @@ env.config();
 const client_id = process.env.CLIENT_ID;
 const redirect_uri = process.env.REDIRECT_URL;
 const client_secret = process.env.CLIENT_SECRETE;
+const id = process.env.TOKEN_ID;
+const backendUrl = process.env.SERVER_URL;
 
 const authUrl = async (req, res) => {
   const url = `https://api.upstox.com/v2/login/authorization/dialog?client_id=${client_id}&redirect_uri=${encodeURIComponent(
@@ -18,10 +20,16 @@ const authUrl = async (req, res) => {
   res.redirect(url);
 };
 
-const saveTokens = (token) => {
-  let tokensData = { accessToken: token };
-  fs.writeFileSync(tokensFile, JSON.stringify(tokensData), "utf8");
-  console.log("Tokens saved to file.");
+const saveTokens = async (token) => {
+  try {
+    const response = await axios.post(`${backendUrl}/set-upstock-token`, {
+      token,
+      id,
+    });
+    console.log("Tokens saved successfully.");
+  } catch (error) {
+    console.error("Failed to save tokens:", response.data);
+  }
 };
 
 const getCode = async (req, res) => {

@@ -3,6 +3,7 @@ const UpstoxClient = require("upstox-js-sdk");
 const fs = require("fs");
 const axios = require("axios");
 const env = require("dotenv");
+const { getToken } = require("./getToken");
 
 env.config();
 const redirectUrl = process.env.REDIRECT_URL;
@@ -10,12 +11,9 @@ let accessToken = null;
 const tokensFile = "./tokens.json";
 
 // Load tokens from file
-const loadTokens = () => {
-  if (fs.existsSync(tokensFile)) {
-    const tokensData = JSON.parse(fs.readFileSync(tokensFile, "utf8"));
-    accessToken = tokensData.accessToken;
-    console.log("Tokens loaded from file.");
-  }
+const loadTokens = async () => {
+  const token = await getToken();
+  accessToken = token;
 };
 loadTokens();
 
@@ -132,6 +130,7 @@ const streaming_user_specific = (io) => {
     // Handle subscriptions
     // Handle subscriptions
     socket.on("subscribe", (keys) => {
+      loadTokens();
       if (Array.isArray(keys)) {
         console.log(`User ${socket.id} subscribed to keys: ${keys}`);
         activeUsers.set(socket.id, keys);
