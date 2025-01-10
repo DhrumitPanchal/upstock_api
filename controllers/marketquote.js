@@ -1,6 +1,16 @@
 const axios = require("axios");
+const { getToken } = require("./getToken");
 
-const marketQuote = async (req, res, token) => {
+let accessToken = null;
+
+const loadTokens = async () => {
+  const token = await getToken();
+  accessToken = token;
+};
+
+loadTokens();
+
+const marketQuote = async (req, res) => {
   const { instrument_key } = req.body;
   console.log("instrument_key is : " + instrument_key);
   // const accessToken = await loadTokens();
@@ -25,7 +35,7 @@ const marketQuote = async (req, res, token) => {
       // Set request headers
       const headers = {
         Accept: "application/json",
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${accessToken}`,
       };
 
       // Make the API call

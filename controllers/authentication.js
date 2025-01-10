@@ -69,13 +69,13 @@ const getCode = async (req, res) => {
     saveTokens(access_token);
 
     console.log("Tokens obtained:", { accessToken });
-    return accessToken;
+    res.status(200).send("Tokens retrieved and saved successfully");
   } catch (error) {
     console.error(
       "Error exchanging authorization code for tokens:",
       error.message
     );
-    // res.status(500).send("Error exchanging authorization code for tokens.");
+    res.status(500).send("Error exchanging authorization code for tokens.");
   }
 };
 

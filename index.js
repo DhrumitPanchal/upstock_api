@@ -8,8 +8,6 @@ const { authUrl, getCode } = require("./controllers/authentication");
 const { marketQuote } = require("./controllers/marketquote");
 const Initial_Streaming = require("./controllers/initial_Streaming");
 const streaming_user_specific = require("./controllers/userSpecificStreaming");
-const CircularJSON = require("circular-json");
-const { getToken } = require("./controllers/getToken");
 env.config();
 const app = express();
 app.use(cors());
@@ -19,15 +17,6 @@ const server = http.createServer(app);
 const io = new Server(server); // Main Socket.IO instance
 const port = process.env.PORT || 3000;
 
-const tokensFile = "./tokens.json";
-let accessToken = null;
-
-// Load tokens from file
-const loadTokens = async () => {
-  const token = await getToken();
-  accessToken = token;
-};
-loadTokens();
 // Setup streaming namespace
 Initial_Streaming(io);
 streaming_user_specific(io);
@@ -39,23 +28,9 @@ app.get("/status", (req, res) => {
 
 app.get("/auth-url", authUrl);
 
-app.get("/", async (req, res) => {
-  const code = req.query.code;
+app.get("/", getCode);
 
-  if (!code) {
-    return res.status(400).send("Authorization code not found.");
-  }
-  try {
-    accessToken = await getCode(req, res);
-    console.log("Access token returned");
-    return res.status(200).send("<h2>Token Set successfully</h2>");
-  } catch (error) {
-    console.error("Error obtaining access token:", error.message);
-    return res.status(500).json({ error: "Failed to obtain access token" });
-  }
-});
-
-app.post("/market-quote", (req, res) => marketQuote(req, res, accessToken));
+app.post("/market-quote", (req, res) => marketQuote(req, res));
 
 // Start the server
 loadTokens();
