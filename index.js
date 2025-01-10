@@ -33,7 +33,6 @@ app.get("/", getCode);
 app.post("/market-quote", (req, res) => marketQuote(req, res));
 
 // Start the server
-loadTokens();
 server.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
