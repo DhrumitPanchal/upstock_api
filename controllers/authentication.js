@@ -62,13 +62,9 @@ const getCode = async (req, res) => {
     if (!access_token) {
       return res.status(500).send("Tokens not received.");
     }
-    console.log(access_token);
     accessToken = access_token;
-
     // Save the tokens to file
     saveTokens(access_token);
-
-    console.log("Tokens obtained:", { accessToken });
     res.status(200).send("Tokens retrieved and saved successfully");
   } catch (error) {
     console.error(

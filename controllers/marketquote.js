@@ -8,9 +8,8 @@ const loadTokens = async () => {
   accessToken = token;
 };
 
-loadTokens();
-
 const marketQuote = async (req, res) => {
+  await loadTokens();
   const { instrument_key } = req.body;
   console.log("instrument_key is : " + instrument_key);
   // const accessToken = await loadTokens();
